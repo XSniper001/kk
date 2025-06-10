@@ -21,3 +21,10 @@ Restart-Service -Name 'MSSQLSERVER'
 
 
 
+:: Enable TCP/IP globally
+reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp" /v Enabled /t REG_DWORD /d 1 /f
+
+:: Enable TCP/IP for IPAll and assign port 1433
+reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" /v TcpPort /t REG_SZ /d 1433 /f
+reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" /v Enabled /t REG_DWORD /d 1 /f
+reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" /v Active /t REG_DWORD /d 1 /f
