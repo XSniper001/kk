@@ -1,0 +1,23 @@
+# Set the registry key for TCP/IP to Enabled (value 1)
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp" -Name "Enabled" -Value 1
+
+**********************************************************************************************************************************************
+# Enable TCP/IP for IPAll and IP1
+$tcpPaths = @(
+  "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll",
+  "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IP1",
+  "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IP2"
+)
+
+foreach ($path in $tcpPaths) {
+    Set-ItemProperty -Path $path -Name "Enabled" -Value 1
+    Set-ItemProperty -Path $path -Name "Active" -Value 1
+}
+
+********************************************************************************************************************************************
+# Restart SQL Server (default instance)
+Restart-Service -Name 'MSSQLSERVER'
+
+
+
+
