@@ -1,30 +1,43 @@
-# Set the registry key for TCP/IP to Enabled (value 1)
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp" -Name "Enabled" -Value 1
+# CONFIGURE THESE:
+$SQLServer = "localhost"               # or "YourServer\InstanceName"
+$LoginName = "splunk_monitor"
+$Password = "StrongPassword123!"       # Use a strong password
 
-**********************************************************************************************************************************************
-# Enable TCP/IP for IPAll and IP1
-$tcpPaths = @(
-  "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll",
-  "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IP1",
-  "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IP2"
-)
+# Load SQL Server Management Objects
+Import-Module SqlServer -ErrorAction Stop
 
-foreach ($path in $tcpPaths) {
-    Set-ItemProperty -Path $path -Name "Enabled" -Value 1
-    Set-ItemProperty -Path $path -Name "Active" -Value 1
+# Connect to server
+$server = New-Object Microsoft.SqlServer.Management.Smo.Server $SQLServer
+
+# Create login if it doesn't exist
+if (-not $server.Logins[$LoginName]) {
+    $login = New-Object Microsoft.SqlServer.Management.Smo.Login($server, $LoginName)
+    $login.LoginType = [Microsoft.SqlServer.Management.Smo.LoginType]::SqlLogin
+    $login.Create($Password)
+    Write-Host "✅ Login '$LoginName' created."
+} else {
+    Write-Host "ℹ️ Login '$LoginName' already exists."
 }
 
-********************************************************************************************************************************************
-# Restart SQL Server (default instance)
-Restart-Service -Name 'MSSQLSERVER'
+# Loop through all user databases (excluding system DBs)
+foreach ($db in $server.Databases) {
+    if ($db.IsSystemObject -eq $false) {
+        try {
+            # Add user to database if not already mapped
+            if (-not $db.Users[$LoginName]) {
+                $user = New-Object Microsoft.SqlServer.Management.Smo.User($db, $LoginName)
+                $user.Login = $LoginName
+                $user.Create()
+                Write-Host "➕ User added to DB: $($db.Name)"
+            }
 
+            # Add to db_owner role
+            $db.Roles["db_owner"].AddMember($LoginName)
+            Write-Host "🔐 Granted db_owner in: $($db.Name)"
+        } catch {
+            Write-Host "⚠️ Failed on DB $($db.Name): $_"
+        }
+    }
+}
 
-
-
-:: Enable TCP/IP globally
-reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp" /v Enabled /t REG_DWORD /d 1 /f
-
-:: Enable TCP/IP for IPAll and assign port 1433
-reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" /v TcpPort /t REG_SZ /d 1433 /f
-reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" /v Enabled /t REG_DWORD /d 1 /f
-reg add "HKLM\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQLServer\SuperSocketNetLib\Tcp\IPAll" /v Active /t REG_DWORD /d 1 /f
+Write-Host "✅ '$LoginName' now has db_owner on all user databases."
